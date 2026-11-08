@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tetris</title>
+<style>
+:root {
+  --bg-body: #05050c;
+  --bg-board: #0a0a14;
+  --bg-panel: #12121f;
+  --border-panel: #2a2a4a;
+  --text-primary: #ffffff;
+  --text-secondary: #9a9ab0;
+  --text-accent: #4fc3f7;
+  --grid-line: rgba(255,255,255,0.06);
+  --ghost-piece: rgba(255,255,255,0.15);
+  --overlay-bg: rgba(5,5,12,0.92);
+  --btn-bg: #1a1a2e;
+  --btn-hover: #2a2a4e;
+  --btn-border: #3a3a5e;
+  --slider-track: #2a2a4a;
+  --slider-thumb: #4fc3f7;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg-body);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+header {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-panel);
+  border-radius: 8px 8px 0 0;
+}
+header h1 {
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  color: var(--text-accent);
+}
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.audio-controls button {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+.audio-controls button:hover {
+  background: var(--btn-hover);
+}
+.audio-controls button.muted {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.audio-controls input[type=range] {
+  width: 80px;
+  accent-color: var(--slider-thumb);
+  cursor: pointer;
+}
+.game-wrapper {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-panel);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100px;
+}
+.side-panel .label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.side-panel .value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--text-accent);
+}
+.preview-box {
+  width: 80px;
+  height: 80px;
+  background: var(--bg-board);
+  border: 1px solid var(--border-panel);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.board-container {
+  position: relative;
+}
+canvas#board {
+  display: block;
+  background: var(--bg-board);
+  border: 1px solid var(--border-panel);
+  border-radius: 4px;
+}
+canvas.preview {
+  display: block;
+}
+.overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--overlay-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 4px;
+  z-index: 10;
+}
+.overlay.hidden { display: none; }
+.overlay h2 {
+  font-size: 1.4rem;
+  color: var(--text-accent);
+}
+.overlay p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.overlay button {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text-primary);
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.overlay button:hover {
+  background: var(--btn-hover);
+}
+.controls-hint {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 4px;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>TETRIS</h1>
+  <div class="audio-controls">
+    <button id="muteBtn" title="Toggle Sound">🔊 Sound</button>
+    <input type="range" id="volumeSlider" min="0" max="100" value="70" title="Volume">
+  </div>
+</header>
+<div class="game-wrapper">
+  <div class="side-panel">
+    <div><span class="label">Hold</span><div class="preview-box"><canvas id="holdCanvas" width="80" height="80"></canvas></div></div>
+    <div><span class="label">Score</span><div class="value" id="scoreVal">0</div></div>
+    <div><span class="label">Level</span><div class="value" id="levelVal">1</div></div>
+    <div><span class="label">Lines</span><div class="value" id="linesVal">0</div></div>
+  </div>
+  <div class="board-container">
+    <canvas id="board" width="300" height="600"></canvas>
+    <div class="overlay" id="startOverlay">
+      <h2>TETRIS</h2>
+      <p>Press Enter or click to start</p>
+      <button id="startBtn">Start Game</button>
+    </div>
+    <div class="overlay hidden" id="pauseOverlay">
+      <h2>PAUSED</h2>
+      <p>Press P to resume</p>
+      <button id="resumeBtn">Resume</button>
+    </div>
+    <div class="overlay hidden" id="gameOverOverlay">
+      <h2>GAME OVER</h2>
+      <p id="finalScore">Score: 0</p>
+      <button id="restartBtn">Play Again</button>
+    </div>
+  </div>
+  <div class="side-panel">
+    <div><span class="label">Next</span><div class="preview-box"><canvas id="nextCanvas" width="80" height="80"></canvas></div></div>
+    <div><span class="label">Controls</span>
+      <div style="font-size:0.65rem;color:var(--text-secondary);line-height:1.5">
+        ← → Move<br>↑ Rotate<br>↓ Soft Drop<br>Space Hard Drop<br>C Hold<br>P Pause
+      </div>
+    </div>
+  </div>
+</div>
+<div class="controls-hint">← → Move | ↑ Rotate | ↓ Soft | Space Hard Drop | C Hold | P Pause</div>
+
+<script>
+// ============ SOUND MANAGER ============
+class SoundManager {
+  constructor() {
+    this.ctx = null;
+    this.masterGain = null;
+    this.muted = false;
+    this.volume = 0.7;
+  }
+
+  _ensureContext() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = this.volume;
+      this.masterGain.connect(this.ctx.destination);
+    }
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  setVolume(v) {
+    this.volume = v;
+    if (this.masterGain) {
+      this.masterGain.gain.value = this.muted ? 0 : v;
+    }
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.masterGain) {
+      this.masterGain.gain.value = this.muted ? 0 : this.volume;
+    }
+    return this.muted;
+  }
+
+  _createOscillator(type, freq, startTime, duration, gainVal = 0.3) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(gainVal, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  _createNoiseBuffer(duration) {
+    const sampleRate = this.ctx.sampleRate;
+    const bufferLength = Math.floor(sampleRate * duration);
+    const buffer = this.ctx.createBuffer(1, bufferLength, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferLength; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferLength, 3);
+    }
+    return buffer;
+  }
+
+  playSpawn() {
+    this._ensureContext();
+    const t = this.ctx.currentTime;
+    this._createOscillator('sine', 880, t, 0.08, 0.2);
+  }
+
+  playLineClear(lines) {
+    this._ensureContext();
+    const t = this.ctx.currentTime;
+    if (lines >= 4) {
+      // Tetris: chord (C5, E5, G5, C6)
+      const freqs = [523.25, 659.25, 783.99, 1046.5];
+      freqs.forEach(f => this._createOscillator('sine', f, t, 0.4, 0.25));
+      this._createOscillator('triangle', 261.63, t, 0.5, 0.15);
+    } else {
+      // Ascending arpeggio
+      const baseFreqs = [523.25, 659.25, 783.99];
+      const count = Math.min(lines, 3);
+      for (let i = 0; i < count; i++) {
+        this._createOscillator('sine', baseFreqs[i], t + i * 0.08, 0.15, 0.25);
+      }
+    }
+  }
+
+  playHardDrop() {
+    this._ensureContext();
+    const t = this.ctx.currentTime;
+    // Low thud using noise
+    const noiseBuf = this._createNoiseBuffer(0.12);
+    const src = this.ctx.createBufferSource();
+    src.buffer = noiseBuf;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.5, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 200;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    src.start(t);
+    // Low sine thud
+    this._createOscillator('sine', 60, t, 0.1, 0.4);
+  }
+
+  playGameOver() {
+    this._ensureContext();
+    const t = this.ctx.currentTime;
+    // Descending chromatic scale from C5 down to C4
+    const startFreq = 523.25;
+    const notes = 13; // C5 to C4 inclusive
+    const stepDur = 0.12;
+    for (let i = 0; i < notes; i++) {
+      const semitonesDown = i;
+      const freq = startFreq * Math.pow(2, -semitonesDown / 12);
+      this._createOscillator('sawtooth', freq, t + i * stepDur, stepDur * 0.9, 0.2);
+    }
+  }
+}
+
